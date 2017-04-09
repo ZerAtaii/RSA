@@ -65,7 +65,6 @@ void * ecoute(void * arg){
 			send(listClient[i],messageFormate,sizeof(messageFormate),0);
 		}
 	}
-	return ;
 }
 
 

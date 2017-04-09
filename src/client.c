@@ -7,20 +7,21 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
+void * ecoute(void * arg){
+	int dialogSocket = (int)arg;
+	char messageReception[2052] = "";
+	while(1){
+		recv(dialogSocket,messageReception,2052,0);
+		//if(memcmp(&messageReception,&messageVide,2052)!=0 ){
+			printf("%s",messageReception);
+		//}
+		strcpy(messageReception,"");
+	}
+}
 
 int main(int argc, char const *argv[]){
 
-	void * ecoute(void * arg){
-		int dialogSocket = (int)arg;
-		char messageReception[2052] = "";
-		while(1){
-			recv(dialogSocket,messageReception,2052,0);
-			//if(memcmp(&messageReception,&messageVide,2052)!=0 ){
-				printf("%s",messageReception);
-			//}
-			strcpy(messageReception,"");
-		}
-	}
+
 
 	printf("start client \n");
 
