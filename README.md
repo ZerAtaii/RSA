@@ -26,3 +26,4 @@
 
 https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/OPTIONS : pour l'entête http
 http://forum.hardware.fr/hfr/Programmation/C/socket-programmer-proxy-sujet_88089_1.htm : forum programmation proxy
+http://codes-sources.commentcamarche.net/source/10846-serveur-proxy-http-win32 : un proxy mais écrit en C++
