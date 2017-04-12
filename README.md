@@ -21,3 +21,8 @@
 - Client.c effectue la requête vers le serveur web
 - Le server web répond à Client.c
 - Client.c transmet la réponse au client en passant par Server.c (je crois que c'est obligatoire mais pas certain ...)
+
+# Différents liens pouvant être utiles
+
+https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/OPTIONS : pour l'entête http
+http://forum.hardware.fr/hfr/Programmation/C/socket-programmer-proxy-sujet_88089_1.htm : forum programmation proxy
