@@ -1,5 +1,6 @@
-all : proxy.c
-	gcc -std=c99 -Wall -o proxy proxy.c
+all : proxy.c adblock.h
+	gcc -Wall -o proxy proxy.c adblock.c
+
 
 clean:
 		rm -rf proxy

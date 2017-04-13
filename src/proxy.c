@@ -9,6 +9,9 @@
 #include <pthread.h>
 #include <math.h>
 #include <netdb.h>
+#include "adblock.h"
+
+char list[61047][3000];
 
 /*
 * Code qui réalise le proxy le plus basique possible, en modifiant la fonction proxy appelée
@@ -63,14 +66,17 @@ int proxy (int* socket_arg){
   int socket_envoi;
   socket_envoi=socket(AF_INET,SOCK_STREAM,0);
 
-  char buffer[1024*2];  // Buffer de 2 ko
-  char buffer2[1024*2]; // 2ème Buffer de 2 ko
+  char buffer[1024*8];  // Buffer de 2 ko
+  char buffer2[1024*8]; // 2ème Buffer de 2 ko
   memset(buffer,'\0', sizeof(buffer)); // On initialise un buffer vide
 
   // On recoit la requete du navigateur
   int size = recv(socket_client, buffer, sizeof(buffer), 0);
-  fprintf(stdout, "----Commande recue ----\r\n%s----\r\n", buffer);
-
+  if (strlen(buffer)==0) {
+    printf("The buffer is empty !\n");
+    return 1;
+  }
+  printf("----Commande recue ----\r\n%s-----------------\r\n", buffer);
   // On récupère le header (Host:) de la requete
   // pour pouvoir se connecter au serveur web
   char * host = get_host(buffer);
@@ -85,18 +91,19 @@ int proxy (int* socket_arg){
     cut_host_and_port(host, port); //Cas spécial ou on doit séparer l'host et le port (le port est dans l'host apres les :)
    }
    else{
-    port = "80"; //Sinon on prend le port 80 par défaut
+    port = "80"; //Sinon on prend le port 80 par défaut (port HTTP normal / 443 pour le HTTPS)
+   }
+   if (isInTheList(list,host) == 1) {
+     printf("Host : [%s], port : [%s] BLOCKED \r\n", host, port);
+     return 0;
    }
    printf("Host : [%s], port : [%s]\r\n", host, port);
-   /*
-   ****         CODE A AJOUTER ICI         *****
-   */
 
 
    // Gestion des erreurs
    if((structHost = gethostbyname(host)) == NULL){
     	printf("Host error. Can't find %s\r\n", host);
-    	close(socket_client);
+    	//close(socket_client);
     	return 1;
    }
 
@@ -137,7 +144,7 @@ int proxy (int* socket_arg){
 
 int main(int argc, char * argv[]){
   printf("start\n");
-
+  getList(list,"pub.txt");
   //Initialisation des variables
   struct sockaddr_in serv_addr, cli_addr;
   int socket_local;
