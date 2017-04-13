@@ -69,7 +69,7 @@ int proxy (int* socket_arg){
 
   // On recoit la requete du navigateur
   int size = recv(socket_client, buffer, sizeof(buffer), 0);
-  //fprintf(stdout, "----Commande recue ----\r\n%s----\r\n", buffer);
+  fprintf(stdout, "----Commande recue ----\r\n%s----\r\n", buffer);
 
   // On récupère le header (Host:) de la requete
   // pour pouvoir se connecter au serveur web
