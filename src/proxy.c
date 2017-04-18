@@ -71,13 +71,16 @@ char* get_service(char * httpRequest) {
   while (httpRequest[end] != ':'){
     end++;
   }
+  //if (end>5) {
+  //  end = 5;
+  //}
   while (httpRequest[start] != 'h'){
     start++;
   }
   for (i=start; i<end ; i++) {
     service[i-start]=httpRequest[i];
   }
-  service[end]='\0';
+  service[end-start]='\0';
   return service;
 }
 
@@ -122,7 +125,7 @@ int proxy (int* socket_arg){
     printf("Connection expired\n");
     return 1;
   }
-  printf("----Commande recue ----\r\n%s-----------------\r\n", buffer);
+  printf("----Request received ----\r\n%s-----------------\r\n", buffer);
   // On récupère le header (Host:) de la requete
   // pour pouvoir se connecter au serveur web
   char * host = get_host(buffer);
@@ -147,7 +150,7 @@ int proxy (int* socket_arg){
    }
 
    if (isInTheList(list,url) == 1) {
-     printf("Host : [%s],  BLOCKED \r\n", host, port);
+     printf("Host : [%s],  BLOCKED \r\n", host);
      return 0;
    }
    printf("Host : [%s], port : [%s], service : [%s] \r\n", host, port,service);
@@ -155,7 +158,7 @@ int proxy (int* socket_arg){
    int status;
    // Gestion des erreurs
    if( (status = getaddrinfo(host,service,&hints,&structHost)) != 0){
-    	printf("Host error. Can't find %s\r\n", host);
+    	printf("Host error. Can't find %s Error: %s \r\n", host,gai_strerror(status));
     	return 1;
    }
 
@@ -191,7 +194,7 @@ int proxy (int* socket_arg){
    //Nettoyage
     close(socket_client);
     close(sfd);
-    freeaddrinfo(structHost);
+    //freeaddrinfo(structHost);
     return 0;
    }
 
