@@ -246,7 +246,7 @@ int main(int argc, char * argv[]){
     }
     else
     {
-    	printf("Connexion de : %s \n",inet_ntoa(cli_addr.sin_addr));
+    	//printf("Connexion de : %s \n",inet_ntoa(cli_addr.sin_addr));
       // On cree un thread par nouvelle connexion en
       // appelant la fonction proxy avec comme paramètre le socket client
       // Si erreur à la creation d'un thread
