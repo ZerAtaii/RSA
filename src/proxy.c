@@ -22,6 +22,8 @@ char list[61047][3000];
 
 
 
+
+
 /* cut_host_and_port
 * separe le host de son port
 */
@@ -37,6 +39,48 @@ void cut_host_and_port(char * host, char * port){
  	port[y] = host[i]; }
 }
 
+/* getURL()
+* recupère l'URL pour la comparer à la liste
+*/
+char* getURL(char * httpRequest) {
+  unsigned short start=0,end=0,i=0;
+  char * url = (char *)malloc(256 * sizeof(char));
+  while (httpRequest[end] != '\n'){
+    end++;
+  }
+  while (httpRequest[start] != 'h'){
+    start++;
+  }
+  for (i=start; i<end-11 ; i++) {
+    url[i-start]=httpRequest[i];
+  }
+  url[end-11]='\0';
+  return url;
+}
+
+
+
+
+/* get_service()
+* Isole le service cherché HTTP ou HTTPS
+*/
+
+char* get_service(char * httpRequest) {
+  unsigned short start=0,end=0,i=0;
+  char * service = (char *)malloc(10 * sizeof(char));
+  while (httpRequest[end] != ':'){
+    end++;
+  }
+  while (httpRequest[start] != 'h'){
+    start++;
+  }
+  for (i=start; i<end ; i++) {
+    service[i-start]=httpRequest[i];
+  }
+  service[end]='\0';
+  return service;
+}
+
 /*
 * get_host()
 * fonction qui isole le header http (Host:)
@@ -45,6 +89,7 @@ char * get_host(char * httpRequest){
 	unsigned short i = 0, j = 0;
 	char * buffer = strstr(httpRequest, "Host: " );
 	char * host = (char *)malloc(256 * sizeof(char));
+
 	while( buffer[i] != '\n' ) {
  		i++;
 	}
@@ -61,11 +106,12 @@ char * get_host(char * httpRequest){
 int proxy (int* socket_arg){
   int * ps = socket_arg;
   int socket_client = *ps;
-  struct hostent * structHost;
-  struct sockaddr_in server;
-  int socket_envoi;
-  socket_envoi=socket(AF_INET,SOCK_STREAM,0);
+  struct addrinfo * structHost,*rp;
+  struct addrinfo hints;
+  hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
+  hints.ai_socktype = SOCK_STREAM;
 
+  int sfd;
   char buffer[1024*8];  // Buffer de 2 ko
   char buffer2[1024*8]; // 2ème Buffer de 2 ko
   memset(buffer,'\0', sizeof(buffer)); // On initialise un buffer vide
@@ -73,13 +119,19 @@ int proxy (int* socket_arg){
   // On recoit la requete du navigateur
   int size = recv(socket_client, buffer, sizeof(buffer), 0);
   if (strlen(buffer)==0) {
-    printf("The buffer is empty !\n");
+    printf("Connection expired\n");
     return 1;
   }
   printf("----Commande recue ----\r\n%s-----------------\r\n", buffer);
   // On récupère le header (Host:) de la requete
   // pour pouvoir se connecter au serveur web
   char * host = get_host(buffer);
+  // On récupère le service pour utiliser getaddrinfo
+  char * service = get_service(buffer);
+
+  //On récupère l'URL pour bloquer la pub
+  char * url = getURL(buffer);
+
   // Parfois host a la forme (Host: adresse:port
   // donc on creer une variable port pour récupérer ce dernier
   char * port = (char *)malloc(5 * sizeof(char));
@@ -93,56 +145,63 @@ int proxy (int* socket_arg){
    else{
     port = "80"; //Sinon on prend le port 80 par défaut (port HTTP normal / 443 pour le HTTPS)
    }
-   if (isInTheList(list,host) == 1) {
-     printf("Host : [%s], port : [%s] BLOCKED \r\n", host, port);
+
+   if (isInTheList(list,url) == 1) {
+     printf("Host : [%s],  BLOCKED \r\n", host, port);
      return 0;
    }
-   printf("Host : [%s], port : [%s]\r\n", host, port);
+   printf("Host : [%s], port : [%s], service : [%s] \r\n", host, port,service);
 
-
+   int status;
    // Gestion des erreurs
-   if((structHost = gethostbyname(host)) == NULL){
+   if( (status = getaddrinfo(host,service,&hints,&structHost)) != 0){
     	printf("Host error. Can't find %s\r\n", host);
-    	//close(socket_client);
     	return 1;
    }
 
    // On envoie la requete au serveur web
    // grace a une nouvelle socket
 
-   if(socket_envoi < 0 ){
-     close(socket_client);
-     perror("Socket error !" );
-     return 1;
-   }
 
-   server.sin_family = AF_INET;
-   server.sin_port   = htons(atoi(port));
-   server.sin_addr   = *((struct in_addr *)structHost->h_addr);
-   memset(&(server.sin_zero),'\0',8);
-   if( connect(socket_envoi,(struct sockaddr * )&server, sizeof(struct sockaddr)) == -1){
-       perror("Error connect\r\n");
-       close(socket_client);
-       close(socket_envoi);
-       return 1;
-   }
-   send(socket_envoi, buffer, strlen(buffer), 0);
+
+   //On se connecte au premier serveur disponible dans la liste chainée
+
+   for (rp = structHost; rp != NULL; rp = rp->ai_next) {
+           sfd = socket(rp->ai_family, rp->ai_socktype,rp->ai_protocol);
+           if (sfd == -1)
+               continue;
+
+           if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1) {
+               break; }                  /* Success */
+
+           close(sfd);
+       }
+  if (rp == NULL) {               /* No address succeeded */
+           fprintf(stderr, "Could not connect to %s\r\n",host);
+           return(1);
+  }
+
+   send(sfd, buffer, strlen(buffer), 0);
    // Reception des données à partir du serveur
-   // et ont les renvoie au navigateur
-   while( (size = recv(socket_envoi, buffer2, sizeof(buffer2),0)) > 0){
+   // et on les renvoie au navigateur
+   while( (size = recv(sfd, buffer2, sizeof(buffer2),0)) > 0){
     buffer2[size]='\0';
     send(socket_client, buffer2, size, 0);
     }
    //Nettoyage
     close(socket_client);
-    close(socket_envoi);
-    //printf("Exiting Thread.\r\n" );
+    close(sfd);
+    freeaddrinfo(structHost);
     return 0;
    }
 
 
 
 int main(int argc, char * argv[]){
+  if (argc<2) {
+    printf("Please use the proxy like ./proxy numberofport\n");
+    return 1;
+  }
   printf("start\n");
   getList(list,"pub.txt");
   //Initialisation des variables
@@ -154,7 +213,7 @@ int main(int argc, char * argv[]){
   int sin_size = sizeof(serv_addr);
 
   // Définition du proxy port en argument
-  serv_addr.sin_family = 	AF_INET; // TCP
+  serv_addr.sin_family = 	AF_UNSPEC; // IPv4 ou IPv6
 	serv_addr.sin_addr.s_addr = htonl(INADDR_ANY); // on peut recevoir les messages de toute ip
 	serv_addr.sin_port = htons(atoi(argv[1]));
 
@@ -187,7 +246,7 @@ int main(int argc, char * argv[]){
     	printf("Connexion de : %s \n",inet_ntoa(cli_addr.sin_addr));
       // On cree un thread par nouvelle connexion en
       // appelant la fonction proxy avec comme paramètre le socket client
-      // Si erreur a la creation d un thread on quitte
+      // Si erreur à la creation d'un thread
       pthread_t thread;
       if(		pthread_create(&thread,NULL,(void*)proxy,&socket_client) < 0 )
       {

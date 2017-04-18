@@ -27,7 +27,7 @@ void getList(char** list,char* filepath) {
 int isInTheList(char** list,char* host) {
   int i;
   for (i=0;i<sizeof(list);i++) {
-    if (strcmp(list[i],host) == 0) { //Si le mot est dans la liste
+    if (strstr(host,list[i]) != NULL) { //Si le mot est dans la liste
       return 1;
     }
   }
