@@ -11,8 +11,7 @@
 #include <netdb.h>
 #include "adblock.h"
 
-char list[61047][3000];
-
+char **list;
 /*
 * Code qui réalise le proxy le plus basique possible, en modifiant la fonction proxy appelée
 * par les threads lors de connexion, on peut choisir de garder ou non les demandes HTTP et
@@ -44,7 +43,7 @@ void cut_host_and_port(char * host, char * port){
 */
 char* getURL(char * httpRequest) {
   unsigned short start=0,end=0,i=0;
-  char * url = (char *)malloc(256 * sizeof(char));
+  char * url = (char *)malloc(512 * sizeof(char));
   while (httpRequest[end] != '\n'){
     end++;
   }
@@ -54,11 +53,8 @@ char* getURL(char * httpRequest) {
   for (i=start; i<end-11 ; i++) {
     url[i-start]=httpRequest[i];
   }
-  url[end-11]='\0';
   return url;
 }
-
-
 
 
 /* get_service()
@@ -109,14 +105,15 @@ char * get_host(char * httpRequest){
 int proxy (int* socket_arg){
   int * ps = socket_arg;
   int socket_client = *ps;
+  close(&ps);
   struct addrinfo * structHost,*rp;
   struct addrinfo hints;
   hints.ai_family = AF_UNSPEC;    /* Allow IPv4 or IPv6 */
   hints.ai_socktype = SOCK_STREAM;
 
   int sfd;
-  char buffer[1024*8];  // Buffer de 2 ko
-  char buffer2[1024*8]; // 2ème Buffer de 2 ko
+  char buffer[1024*8];  // Buffer de 8 ko
+  char buffer2[1024*8]; // 2ème Buffer de 8 ko
   memset(buffer,'\0', sizeof(buffer)); // On initialise un buffer vide
 
   // On recoit la requete du navigateur
@@ -148,8 +145,8 @@ int proxy (int* socket_arg){
    else{
     port = "80"; //Sinon on prend le port 80 par défaut (port HTTP normal / 443 pour le HTTPS)
    }
-
-   if (isInTheList(list,url) == 1) {
+   int isIn=4;
+   if ((isIn =isInTheList(list,url)) > 0) {
      printf("Host : [%s],  BLOCKED \r\n", host);
      return 0;
    }
@@ -171,8 +168,8 @@ int proxy (int* socket_arg){
 
    for (rp = structHost; rp != NULL; rp = rp->ai_next) {
            sfd = socket(rp->ai_family, rp->ai_socktype,rp->ai_protocol);
-           if (sfd == -1)
-               continue;
+           if (sfd == -1) {
+               continue; }
 
            if (connect(sfd, rp->ai_addr, rp->ai_addrlen) != -1) {
                break; }                  /* Success */
@@ -194,7 +191,7 @@ int proxy (int* socket_arg){
    //Nettoyage
     close(socket_client);
     close(sfd);
-    //freeaddrinfo(structHost);
+    freeaddrinfo(structHost);
     return 0;
    }
 
@@ -206,13 +203,17 @@ int main(int argc, char * argv[]){
     return 1;
   }
   printf("start\n");
+  list = malloc (61050*sizeof(char*));
+  for (int j=0;j<61050;j++) {
+    list[j]=malloc(1000*sizeof(char));
+  }
   getList(list,"pub.txt");
   //Initialisation des variables
   struct sockaddr_in serv_addr, cli_addr;
   int socket_local;
   int socket_client;
   pthread_t * threads;
-  threads = malloc(10*sizeof(pthread_t));
+  threads = malloc(5*sizeof(pthread_t));
   int sin_size = sizeof(serv_addr);
 
   // Définition du proxy port en argument
